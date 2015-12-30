@@ -1,4 +1,4 @@
-## LMAX Disruptor
+## LMAX Disruptor for Test
 
 A High Performance Inter-Thread Messaging Library
 
