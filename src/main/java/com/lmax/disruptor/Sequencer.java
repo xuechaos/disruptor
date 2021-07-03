@@ -53,7 +53,7 @@ public interface Sequencer extends Cursored, Sequenced
      * Remove the specified sequence from this sequencer.
      *
      * @param sequence to be removed.
-     * @return <tt>true</tt> if this sequence was found, <tt>false</tt> otherwise.
+     * @return <code>true</code> if this sequence was found, <code>false</code> otherwise.
      */
     boolean removeGatingSequence(Sequence sequence);
 
@@ -61,7 +61,7 @@ public interface Sequencer extends Cursored, Sequenced
      * Create a new SequenceBarrier to be used by an EventProcessor to track which messages
      * are available to be read from the ring buffer given a list of sequences to track.
      *
-     * @param sequencesToTrack
+     * @param sequencesToTrack All of the sequences that the newly constructed barrier will wait on.
      * @return A sequence barrier that will track the specified sequences.
      * @see SequenceBarrier
      */
@@ -82,7 +82,7 @@ public interface Sequencer extends Cursored, Sequenced
      * in the Sequencer.  The scan will range from nextSequence to availableSequence.  If
      * there are no available values <code>&gt;= nextSequence</code> the return value will be
      * <code>nextSequence - 1</code>.  To work correctly a consumer should pass a value that
-     * it 1 higher than the last sequence that was successfully processed.
+     * is 1 higher than the last sequence that was successfully processed.
      *
      * @param nextSequence      The sequence to start scanning from.
      * @param availableSequence The sequence to scan to.
@@ -90,5 +90,13 @@ public interface Sequencer extends Cursored, Sequenced
      */
     long getHighestPublishedSequence(long nextSequence, long availableSequence);
 
+    /**
+     * Creates an event poller from this sequencer
+     *
+     * @param provider from which events are drawn
+     * @param gatingSequences sequences to be gated on
+     * @param <T> the type of the event
+     * @return the event poller
+     */
     <T> EventPoller<T> newPoller(DataProvider<T> provider, Sequence... gatingSequences);
 }

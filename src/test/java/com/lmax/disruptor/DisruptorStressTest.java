@@ -2,7 +2,8 @@ package com.lmax.disruptor;
 
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
-import org.junit.Test;
+import com.lmax.disruptor.util.DaemonThreadFactory;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -13,7 +14,7 @@ import java.util.concurrent.locks.LockSupport;
 import static java.lang.Math.max;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class DisruptorStressTest
 {
@@ -22,15 +23,15 @@ public class DisruptorStressTest
     @Test
     public void shouldHandleLotsOfThreads() throws Exception
     {
-        Disruptor<TestEvent> disruptor = new Disruptor<TestEvent>(
-            TestEvent.FACTORY, 1 << 16, executor,
-            ProducerType.MULTI, new BusySpinWaitStrategy());
+        Disruptor<TestEvent> disruptor = new Disruptor<>(
+                TestEvent.FACTORY, 1 << 16, DaemonThreadFactory.INSTANCE,
+                ProducerType.MULTI, new BusySpinWaitStrategy());
         RingBuffer<TestEvent> ringBuffer = disruptor.getRingBuffer();
         disruptor.setDefaultExceptionHandler(new FatalExceptionHandler());
 
         int threads = max(1, Runtime.getRuntime().availableProcessors() / 2);
 
-        int iterations = 20000000;
+        int iterations = 200000;
         int publisherCount = threads;
         int handlerCount = threads;
 
@@ -68,8 +69,8 @@ public class DisruptorStressTest
     }
 
     private Publisher[] initialise(
-        Publisher[] publishers, RingBuffer<TestEvent> buffer,
-        int messageCount, CyclicBarrier barrier, CountDownLatch latch)
+            final Publisher[] publishers, final RingBuffer<TestEvent> buffer,
+            final int messageCount, final CyclicBarrier barrier, final CountDownLatch latch)
     {
         for (int i = 0; i < publishers.length; i++)
         {
@@ -80,7 +81,7 @@ public class DisruptorStressTest
     }
 
     @SuppressWarnings("unchecked")
-    private TestEventHandler[] initialise(Disruptor<TestEvent> disruptor, TestEventHandler[] testEventHandlers)
+    private TestEventHandler[] initialise(final Disruptor<TestEvent> disruptor, final TestEventHandler[] testEventHandlers)
     {
         for (int i = 0; i < testEventHandlers.length; i++)
         {
@@ -97,12 +98,12 @@ public class DisruptorStressTest
         public int failureCount = 0;
         public int messagesSeen = 0;
 
-        public TestEventHandler()
+        TestEventHandler()
         {
         }
 
         @Override
-        public void onEvent(TestEvent event, long sequence, boolean endOfBatch) throws Exception
+        public void onEvent(final TestEvent event, final long sequence, final boolean endOfBatch) throws Exception
         {
             if (event.sequence != sequence ||
                 event.a != sequence + 13 ||
@@ -125,11 +126,11 @@ public class DisruptorStressTest
 
         public boolean failed = false;
 
-        public Publisher(
-            RingBuffer<TestEvent> ringBuffer,
-            int iterations,
-            CyclicBarrier barrier,
-            CountDownLatch shutdownLatch)
+        Publisher(
+            final RingBuffer<TestEvent> ringBuffer,
+            final int iterations,
+            final CyclicBarrier barrier,
+            final CountDownLatch shutdownLatch)
         {
             this.ringBuffer = ringBuffer;
             this.barrier = barrier;
@@ -174,13 +175,6 @@ public class DisruptorStressTest
         public long b;
         public String s;
 
-        public static final EventFactory<TestEvent> FACTORY = new EventFactory<DisruptorStressTest.TestEvent>()
-        {
-            @Override
-            public TestEvent newInstance()
-            {
-                return new TestEvent();
-            }
-        };
+        public static final EventFactory<TestEvent> FACTORY = () -> new TestEvent();
     }
 }

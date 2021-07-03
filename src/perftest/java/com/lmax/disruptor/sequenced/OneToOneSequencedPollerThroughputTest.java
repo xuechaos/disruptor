@@ -15,22 +15,24 @@
  */
 package com.lmax.disruptor.sequenced;
 
-import static com.lmax.disruptor.RingBuffer.createSingleProducer;
-import static com.lmax.disruptor.support.PerfTestUtil.failIfNot;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 import com.lmax.disruptor.AbstractPerfTestDisruptor;
+import com.lmax.disruptor.BatchStartAware;
 import com.lmax.disruptor.EventPoller;
 import com.lmax.disruptor.EventPoller.PollState;
+import com.lmax.disruptor.PerfTestContext;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.support.PerfTestUtil;
 import com.lmax.disruptor.support.ValueEvent;
 import com.lmax.disruptor.util.DaemonThreadFactory;
 import com.lmax.disruptor.util.PaddedLong;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static com.lmax.disruptor.RingBuffer.createSingleProducer;
+import static com.lmax.disruptor.support.PerfTestUtil.failIfNot;
 
 /**
  * <pre>
@@ -88,15 +90,16 @@ public final class OneToOneSequencedPollerThroughputTest extends AbstractPerfTes
         return 2;
     }
 
-    private static class PollRunnable implements Runnable, EventPoller.Handler<ValueEvent>
+    private static class PollRunnable implements Runnable, EventPoller.Handler<ValueEvent>, BatchStartAware
     {
         private final EventPoller<ValueEvent> poller;
         private volatile boolean running = true;
         private final PaddedLong value = new PaddedLong();
+        private final PaddedLong batchesProcessed = new PaddedLong();
         private CountDownLatch latch;
         private long count;
 
-        public PollRunnable(EventPoller<ValueEvent> poller)
+        PollRunnable(final EventPoller<ValueEvent> poller)
         {
             this.poller = poller;
         }
@@ -121,7 +124,7 @@ public final class OneToOneSequencedPollerThroughputTest extends AbstractPerfTes
         }
 
         @Override
-        public boolean onEvent(ValueEvent event, long sequence, boolean endOfBatch)
+        public boolean onEvent(final ValueEvent event, final long sequence, final boolean endOfBatch)
         {
             value.set(value.get() + event.getValue());
 
@@ -143,6 +146,7 @@ public final class OneToOneSequencedPollerThroughputTest extends AbstractPerfTes
             value.set(0L);
             this.latch = latch;
             count = expectedCount;
+            batchesProcessed.set(0);
             running = true;
         }
 
@@ -150,11 +154,23 @@ public final class OneToOneSequencedPollerThroughputTest extends AbstractPerfTes
         {
             return value.get();
         }
+
+        public long getBatchesProcessed()
+        {
+            return batchesProcessed.get();
+        }
+
+        @Override
+        public void onBatchStart(final long batchSize)
+        {
+            batchesProcessed.increment();
+        }
     }
 
     @Override
-    protected long runDisruptorPass() throws InterruptedException
+    protected PerfTestContext runDisruptorPass() throws InterruptedException
     {
+        PerfTestContext perfTestContext = new PerfTestContext();
         final CountDownLatch latch = new CountDownLatch(1);
         long expectedCount = poller.getSequence().get() + ITERATIONS;
         pollRunnable.reset(latch, expectedCount);
@@ -171,16 +187,17 @@ public final class OneToOneSequencedPollerThroughputTest extends AbstractPerfTes
         }
 
         latch.await();
-        long opsPerSecond = (ITERATIONS * 1000L) / (System.currentTimeMillis() - start);
+        perfTestContext.setDisruptorOps((ITERATIONS * 1000L) / (System.currentTimeMillis() - start));
+        perfTestContext.setBatchData(pollRunnable.getBatchesProcessed(), ITERATIONS);
         waitForEventProcessorSequence(expectedCount);
         pollRunnable.halt();
 
         failIfNot(expectedResult, pollRunnable.getValue());
 
-        return opsPerSecond;
+        return perfTestContext;
     }
 
-    private void waitForEventProcessorSequence(long expectedCount) throws InterruptedException
+    private void waitForEventProcessorSequence(final long expectedCount) throws InterruptedException
     {
         while (poller.getSequence().get() != expectedCount)
         {
@@ -188,7 +205,7 @@ public final class OneToOneSequencedPollerThroughputTest extends AbstractPerfTes
         }
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
         OneToOneSequencedPollerThroughputTest test = new OneToOneSequencedPollerThroughputTest();
         test.testImplementations();

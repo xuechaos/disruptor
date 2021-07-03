@@ -1,5 +1,9 @@
 package com.lmax.disruptor;
 
+/**
+ * Operations related to the sequencing of items in a {@link RingBuffer}.
+ * See the two child interfaces, {@link Sequencer} and {@link EventSequencer} for more details.
+ */
 public interface Sequenced
 {
     /**
@@ -16,7 +20,7 @@ public interface Sequenced
      * @param requiredCapacity in the buffer
      * @return true if the buffer has the capacity to allocate the next sequence otherwise false.
      */
-    boolean hasAvailableCapacity(final int requiredCapacity);
+    boolean hasAvailableCapacity(int requiredCapacity);
 
     /**
      * Get the remaining capacity for this sequencer.
@@ -56,7 +60,7 @@ public interface Sequenced
      * available.
      *
      * @return the claimed sequence value
-     * @throws InsufficientCapacityException
+     * @throws InsufficientCapacityException thrown if there is no space available in the ring buffer.
      */
     long tryNext() throws InsufficientCapacityException;
 
@@ -68,14 +72,14 @@ public interface Sequenced
      *
      * @param n the number of sequences to claim
      * @return the claimed sequence value
-     * @throws InsufficientCapacityException
+     * @throws InsufficientCapacityException thrown if there is no space available in the ring buffer.
      */
     long tryNext(int n) throws InsufficientCapacityException;
 
     /**
      * Publishes a sequence. Call when the event has been filled.
      *
-     * @param sequence
+     * @param sequence the sequence to be published.
      */
     void publish(long sequence);
 

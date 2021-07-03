@@ -15,18 +15,17 @@
  */
 package com.lmax.disruptor.queue;
 
+import com.lmax.disruptor.util.DaemonThreadFactory;
+import org.HdrHistogram.Histogram;
+
 import java.io.PrintStream;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-
-import org.HdrHistogram.Histogram;
-
-import com.lmax.disruptor.util.DaemonThreadFactory;
 
 /**
  * <pre>
@@ -56,13 +55,13 @@ import com.lmax.disruptor.util.DaemonThreadFactory;
  * Q2 - PongQueue
  *
  * </pre>
- * <p>
- * Note: <b>This test is only useful on a system using an invariant TSC in user space from the System.nanoTime() call.</b>
+ *
+ * <p>Note: <b>This test is only useful on a system using an invariant TSC in user space from the System.nanoTime() call.</b>
  */
 public final class PingPongQueueLatencyTest
 {
     private static final int BUFFER_SIZE = 1024;
-    private static final long ITERATIONS = 1000L * 1000L * 30L;
+    private static final long ITERATIONS = 100L * 1000L * 30L;
     private static final long PAUSE_NANOS = 1000L;
     private final ExecutorService executor = Executors.newCachedThreadPool(DaemonThreadFactory.INSTANCE);
 
@@ -70,8 +69,8 @@ public final class PingPongQueueLatencyTest
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    private final BlockingQueue<Long> pingQueue = new LinkedBlockingQueue<Long>(BUFFER_SIZE);
-    private final BlockingQueue<Long> pongQueue = new LinkedBlockingQueue<Long>(BUFFER_SIZE);
+    private final BlockingQueue<Long> pingQueue = new ArrayBlockingQueue<>(BUFFER_SIZE);
+    private final BlockingQueue<Long> pongQueue = new ArrayBlockingQueue<>(BUFFER_SIZE);
     private final QueuePinger qPinger = new QueuePinger(pingQueue, pongQueue, ITERATIONS, PAUSE_NANOS);
     private final QueuePonger qPonger = new QueuePonger(pingQueue, pongQueue);
 
@@ -133,7 +132,7 @@ public final class PingPongQueueLatencyTest
         private long counter;
         private final long maxEvents;
 
-        public QueuePinger(
+        QueuePinger(
             final BlockingQueue<Long> pingQueue, final BlockingQueue<Long> pongQueue, final long maxEvents,
             final long pauseTimeNs)
         {
@@ -152,13 +151,13 @@ public final class PingPongQueueLatencyTest
 
                 Thread.sleep(1000);
 
-                long response = -1;
+                long counter = 0;
 
-                while (response < maxEvents)
+                while (counter < maxEvents)
                 {
                     final long t0 = System.nanoTime();
-                    pingQueue.put(counter++);
-                    response = pongQueue.take();
+                    pingQueue.put(1L);
+                    counter += pongQueue.take();
                     final long t1 = System.nanoTime();
 
                     histogram.recordValueWithExpectedInterval(t1 - t0, pauseTimeNs);
@@ -194,7 +193,7 @@ public final class PingPongQueueLatencyTest
         private final BlockingQueue<Long> pongQueue;
         private CyclicBarrier barrier;
 
-        public QueuePonger(final BlockingQueue<Long> pingQueue, final BlockingQueue<Long> pongQueue)
+        QueuePonger(final BlockingQueue<Long> pingQueue, final BlockingQueue<Long> pongQueue)
         {
             this.pingQueue = pingQueue;
             this.pongQueue = pongQueue;

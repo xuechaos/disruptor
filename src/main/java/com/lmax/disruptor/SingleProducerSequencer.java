@@ -15,15 +15,23 @@
  */
 package com.lmax.disruptor;
 
-import java.util.concurrent.locks.LockSupport;
-
 import com.lmax.disruptor.util.Util;
+
+import java.util.Arrays;
+import java.util.concurrent.locks.LockSupport;
 
 abstract class SingleProducerSequencerPad extends AbstractSequencer
 {
-    protected long p1, p2, p3, p4, p5, p6, p7;
+    protected byte
+        p10, p11, p12, p13, p14, p15, p16, p17,
+        p20, p21, p22, p23, p24, p25, p26, p27,
+        p30, p31, p32, p33, p34, p35, p36, p37,
+        p40, p41, p42, p43, p44, p45, p46, p47,
+        p50, p51, p52, p53, p54, p55, p56, p57,
+        p60, p61, p62, p63, p64, p65, p66, p67,
+        p70, p71, p72, p73, p74, p75, p76, p77;
 
-    public SingleProducerSequencerPad(int bufferSize, WaitStrategy waitStrategy)
+    SingleProducerSequencerPad(final int bufferSize, final WaitStrategy waitStrategy)
     {
         super(bufferSize, waitStrategy);
     }
@@ -31,7 +39,7 @@ abstract class SingleProducerSequencerPad extends AbstractSequencer
 
 abstract class SingleProducerSequencerFields extends SingleProducerSequencerPad
 {
-    public SingleProducerSequencerFields(int bufferSize, WaitStrategy waitStrategy)
+    SingleProducerSequencerFields(final int bufferSize, final WaitStrategy waitStrategy)
     {
         super(bufferSize, waitStrategy);
     }
@@ -39,21 +47,28 @@ abstract class SingleProducerSequencerFields extends SingleProducerSequencerPad
     /**
      * Set to -1 as sequence starting point
      */
-    protected long nextValue = Sequence.INITIAL_VALUE;
-    protected long cachedValue = Sequence.INITIAL_VALUE;
+    long nextValue = Sequence.INITIAL_VALUE;
+    long cachedValue = Sequence.INITIAL_VALUE;
 }
 
 /**
- * <p>Coordinator for claiming sequences for access to a data structure while tracking dependent {@link Sequence}s.
- * Not safe for use from multiple threads as it does not implement any barriers.</p>
- * <p>
- * <p>Note on {@link Sequencer#getCursor()}:  With this sequencer the cursor value is updated after the call
+ * Coordinator for claiming sequences for access to a data structure while tracking dependent {@link Sequence}s.
+ * Not safe for use from multiple threads as it does not implement any barriers.
+ *
+ * <p>* Note on {@link Sequencer#getCursor()}:  With this sequencer the cursor value is updated after the call
  * to {@link Sequencer#publish(long)} is made.
  */
 
 public final class SingleProducerSequencer extends SingleProducerSequencerFields
 {
-    protected long p1, p2, p3, p4, p5, p6, p7;
+    protected byte
+        p10, p11, p12, p13, p14, p15, p16, p17,
+        p20, p21, p22, p23, p24, p25, p26, p27,
+        p30, p31, p32, p33, p34, p35, p36, p37,
+        p40, p41, p42, p43, p44, p45, p46, p47,
+        p50, p51, p52, p53, p54, p55, p56, p57,
+        p60, p61, p62, p63, p64, p65, p66, p67,
+        p70, p71, p72, p73, p74, p75, p76, p77;
 
     /**
      * Construct a Sequencer with the selected wait strategy and buffer size.
@@ -61,7 +76,7 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
      * @param bufferSize   the size of the buffer that this will sequence over.
      * @param waitStrategy for those waiting on sequences.
      */
-    public SingleProducerSequencer(int bufferSize, final WaitStrategy waitStrategy)
+    public SingleProducerSequencer(final int bufferSize, final WaitStrategy waitStrategy)
     {
         super(bufferSize, waitStrategy);
     }
@@ -72,6 +87,11 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
     @Override
     public boolean hasAvailableCapacity(final int requiredCapacity)
     {
+        return hasAvailableCapacity(requiredCapacity, false);
+    }
+
+    private boolean hasAvailableCapacity(final int requiredCapacity, final boolean doStore)
+    {
         long nextValue = this.nextValue;
 
         long wrapPoint = (nextValue + requiredCapacity) - bufferSize;
@@ -79,6 +99,11 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
 
         if (wrapPoint > cachedGatingSequence || cachedGatingSequence > nextValue)
         {
+            if (doStore)
+            {
+                cursor.setVolatile(nextValue);  // StoreLoad fence
+            }
+
             long minSequence = Util.getMinimumSequence(gatingSequences, nextValue);
             this.cachedValue = minSequence;
 
@@ -104,11 +129,11 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
      * @see Sequencer#next(int)
      */
     @Override
-    public long next(int n)
+    public long next(final int n)
     {
-        if (n < 1)
+        if (n < 1 || n > bufferSize)
         {
-            throw new IllegalArgumentException("n must be > 0");
+            throw new IllegalArgumentException("n must be > 0 and < bufferSize");
         }
 
         long nextValue = this.nextValue;
@@ -119,6 +144,8 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
 
         if (wrapPoint > cachedGatingSequence || cachedGatingSequence > nextValue)
         {
+            cursor.setVolatile(nextValue);  // StoreLoad fence
+
             long minSequence;
             while (wrapPoint > (minSequence = Util.getMinimumSequence(gatingSequences, nextValue)))
             {
@@ -146,14 +173,14 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
      * @see Sequencer#tryNext(int)
      */
     @Override
-    public long tryNext(int n) throws InsufficientCapacityException
+    public long tryNext(final int n) throws InsufficientCapacityException
     {
         if (n < 1)
         {
             throw new IllegalArgumentException("n must be > 0");
         }
 
-        if (!hasAvailableCapacity(n))
+        if (!hasAvailableCapacity(n, true))
         {
             throw InsufficientCapacityException.INSTANCE;
         }
@@ -180,7 +207,7 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
      * @see Sequencer#claim(long)
      */
     @Override
-    public void claim(long sequence)
+    public void claim(final long sequence)
     {
         this.nextValue = sequence;
     }
@@ -189,7 +216,7 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
      * @see Sequencer#publish(long)
      */
     @Override
-    public void publish(long sequence)
+    public void publish(final long sequence)
     {
         cursor.set(sequence);
         waitStrategy.signalAllWhenBlocking();
@@ -199,7 +226,7 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
      * @see Sequencer#publish(long, long)
      */
     @Override
-    public void publish(long lo, long hi)
+    public void publish(final long lo, final long hi)
     {
         publish(hi);
     }
@@ -208,14 +235,26 @@ public final class SingleProducerSequencer extends SingleProducerSequencerFields
      * @see Sequencer#isAvailable(long)
      */
     @Override
-    public boolean isAvailable(long sequence)
+    public boolean isAvailable(final long sequence)
     {
-        return sequence <= cursor.get();
+        final long currentSequence = cursor.get();
+        return sequence <= currentSequence && sequence > currentSequence - bufferSize;
     }
 
     @Override
-    public long getHighestPublishedSequence(long lowerBound, long availableSequence)
+    public long getHighestPublishedSequence(final long lowerBound, final long availableSequence)
     {
         return availableSequence;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "SingleProducerSequencer{" +
+                "bufferSize=" + bufferSize +
+                ", waitStrategy=" + waitStrategy +
+                ", cursor=" + cursor +
+                ", gatingSequences=" + Arrays.toString(gatingSequences) +
+                '}';
     }
 }

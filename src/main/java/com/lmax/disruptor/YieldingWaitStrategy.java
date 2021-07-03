@@ -19,8 +19,9 @@ package com.lmax.disruptor;
 /**
  * Yielding strategy that uses a Thread.yield() for {@link com.lmax.disruptor.EventProcessor}s waiting on a barrier
  * after an initially spinning.
- * <p>
- * This strategy is a good compromise between performance and CPU resource without incurring significant latency spikes.
+ *
+ * <p>This strategy will use 100% CPU, but will more readily give up the CPU than a busy spin strategy if other threads
+ * require CPU resource.
  */
 public final class YieldingWaitStrategy implements WaitStrategy
 {
@@ -28,7 +29,7 @@ public final class YieldingWaitStrategy implements WaitStrategy
 
     @Override
     public long waitFor(
-        final long sequence, Sequence cursor, final Sequence dependentSequence, final SequenceBarrier barrier)
+        final long sequence, final Sequence cursor, final Sequence dependentSequence, final SequenceBarrier barrier)
         throws AlertException, InterruptedException
     {
         long availableSequence;
@@ -47,7 +48,7 @@ public final class YieldingWaitStrategy implements WaitStrategy
     {
     }
 
-    private int applyWaitMethod(final SequenceBarrier barrier, int counter)
+    private int applyWaitMethod(final SequenceBarrier barrier, final int counter)
         throws AlertException
     {
         barrier.checkAlert();
@@ -58,7 +59,7 @@ public final class YieldingWaitStrategy implements WaitStrategy
         }
         else
         {
-            --counter;
+            return counter - 1;
         }
 
         return counter;

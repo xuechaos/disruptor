@@ -15,9 +15,10 @@
  */
 package com.lmax.disruptor;
 
-import static com.lmax.disruptor.WaitStrategyTestUtil.assertWaitForWithDelayOf;
+import org.junit.jupiter.api.Test;
 
-import org.junit.Test;
+import static com.lmax.disruptor.support.WaitStrategyTestUtil.assertWaitForWithDelayOf;
+
 
 public class SleepingWaitStrategyTest
 {
