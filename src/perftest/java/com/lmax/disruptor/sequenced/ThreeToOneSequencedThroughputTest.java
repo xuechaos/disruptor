@@ -15,7 +15,16 @@
  */
 package com.lmax.disruptor.sequenced;
 
-import static com.lmax.disruptor.RingBuffer.createMultiProducer;
+import com.lmax.disruptor.AbstractPerfTestDisruptor;
+import com.lmax.disruptor.BatchEventProcessor;
+import com.lmax.disruptor.BusySpinWaitStrategy;
+import com.lmax.disruptor.PerfTestContext;
+import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.SequenceBarrier;
+import com.lmax.disruptor.support.ValueAdditionEventHandler;
+import com.lmax.disruptor.support.ValueEvent;
+import com.lmax.disruptor.support.ValuePublisher;
+import com.lmax.disruptor.util.DaemonThreadFactory;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -23,15 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import com.lmax.disruptor.AbstractPerfTestDisruptor;
-import com.lmax.disruptor.BatchEventProcessor;
-import com.lmax.disruptor.BusySpinWaitStrategy;
-import com.lmax.disruptor.RingBuffer;
-import com.lmax.disruptor.SequenceBarrier;
-import com.lmax.disruptor.support.ValueAdditionEventHandler;
-import com.lmax.disruptor.support.ValueEvent;
-import com.lmax.disruptor.support.ValuePublisher;
-import com.lmax.disruptor.util.DaemonThreadFactory;
+import static com.lmax.disruptor.RingBuffer.createMultiProducer;
 
 /**
  * <pre>
@@ -95,7 +96,7 @@ public final class ThreeToOneSequencedThroughputTest extends AbstractPerfTestDis
     private final SequenceBarrier sequenceBarrier = ringBuffer.newBarrier();
     private final ValueAdditionEventHandler handler = new ValueAdditionEventHandler();
     private final BatchEventProcessor<ValueEvent> batchEventProcessor =
-        new BatchEventProcessor<ValueEvent>(ringBuffer, sequenceBarrier, handler);
+            new BatchEventProcessor<>(ringBuffer, sequenceBarrier, handler);
     private final ValuePublisher[] valuePublishers = new ValuePublisher[NUM_PUBLISHERS];
 
     {
@@ -116,8 +117,9 @@ public final class ThreeToOneSequencedThroughputTest extends AbstractPerfTestDis
     }
 
     @Override
-    protected long runDisruptorPass() throws Exception
+    protected PerfTestContext runDisruptorPass() throws Exception
     {
+        PerfTestContext perfTestContext = new PerfTestContext();
         final CountDownLatch latch = new CountDownLatch(1);
         handler
             .reset(latch, batchEventProcessor.getSequence().get() + ((ITERATIONS / NUM_PUBLISHERS) * NUM_PUBLISHERS));
@@ -139,13 +141,14 @@ public final class ThreeToOneSequencedThroughputTest extends AbstractPerfTestDis
 
         latch.await();
 
-        long opsPerSecond = (ITERATIONS * 1000L) / (System.currentTimeMillis() - start);
+        perfTestContext.setDisruptorOps((ITERATIONS * 1000L) / (System.currentTimeMillis() - start));
+        perfTestContext.setBatchData(handler.getBatchesProcessed(), ITERATIONS);
         batchEventProcessor.halt();
 
-        return opsPerSecond;
+        return perfTestContext;
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
         new ThreeToOneSequencedThroughputTest().testImplementations();
     }

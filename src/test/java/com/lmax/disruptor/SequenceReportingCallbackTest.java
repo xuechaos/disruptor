@@ -16,12 +16,12 @@
 package com.lmax.disruptor;
 
 import com.lmax.disruptor.support.StubEvent;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
 
 import static com.lmax.disruptor.RingBuffer.createMultiProducer;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SequenceReportingCallbackTest
 {
@@ -34,9 +34,9 @@ public class SequenceReportingCallbackTest
     {
         final RingBuffer<StubEvent> ringBuffer = createMultiProducer(StubEvent.EVENT_FACTORY, 16);
         final SequenceBarrier sequenceBarrier = ringBuffer.newBarrier();
-        final SequenceReportingEventHandler<StubEvent> handler = new TestSequenceReportingEventHandler();
-        final BatchEventProcessor<StubEvent> batchEventProcessor = new BatchEventProcessor<StubEvent>(
-            ringBuffer, sequenceBarrier, handler);
+        final EventHandler<StubEvent> handler = new TestSequenceReportingEventHandler();
+        final BatchEventProcessor<StubEvent> batchEventProcessor = new BatchEventProcessor<>(
+                ringBuffer, sequenceBarrier, handler);
         ringBuffer.addGatingSequences(batchEventProcessor.getSequence());
 
         Thread thread = new Thread(batchEventProcessor);
@@ -56,7 +56,7 @@ public class SequenceReportingCallbackTest
         thread.join();
     }
 
-    private class TestSequenceReportingEventHandler implements SequenceReportingEventHandler<StubEvent>
+    private class TestSequenceReportingEventHandler implements EventHandler<StubEvent>
     {
         private Sequence sequenceCallback;
 

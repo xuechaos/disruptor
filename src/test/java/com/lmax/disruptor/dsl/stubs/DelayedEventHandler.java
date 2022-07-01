@@ -16,20 +16,19 @@
 package com.lmax.disruptor.dsl.stubs;
 
 import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.LifecycleAware;
 import com.lmax.disruptor.support.TestEvent;
 
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class DelayedEventHandler implements EventHandler<TestEvent>, LifecycleAware
+public class DelayedEventHandler implements EventHandler<TestEvent>
 {
     private final AtomicBoolean readyToProcessEvent = new AtomicBoolean(false);
     private volatile boolean stopped = false;
     private final CyclicBarrier barrier;
 
-    public DelayedEventHandler(CyclicBarrier barrier)
+    public DelayedEventHandler(final CyclicBarrier barrier)
     {
         this.barrier = barrier;
     }

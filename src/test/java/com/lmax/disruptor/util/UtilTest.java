@@ -15,32 +15,19 @@
  */
 package com.lmax.disruptor.util;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.assertThat;
-
-import java.nio.ByteBuffer;
-
-import org.jmock.Expectations;
-import org.jmock.Mockery;
-import org.jmock.integration.junit4.JMock;
-import org.jmock.lib.legacy.ClassImposteriser;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
 import com.lmax.disruptor.Sequence;
+import org.junit.jupiter.api.Test;
 
-@RunWith(JMock.class)
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public final class UtilTest
 {
-    private final Mockery context = new Mockery();
-
     @Test
     public void shouldReturnNextPowerOfTwo()
     {
         int powerOfTwo = Util.ceilingNextPowerOfTwo(1000);
 
-        Assert.assertEquals(1024, powerOfTwo);
+        assertEquals(1024, powerOfTwo);
     }
 
     @Test
@@ -48,36 +35,14 @@ public final class UtilTest
     {
         int powerOfTwo = Util.ceilingNextPowerOfTwo(1024);
 
-        Assert.assertEquals(1024, powerOfTwo);
+        assertEquals(1024, powerOfTwo);
     }
 
     @Test
     public void shouldReturnMinimumSequence()
     {
-        final Sequence[] sequences = new Sequence[3];
-
-        context.setImposteriser(ClassImposteriser.INSTANCE);
-
-        sequences[0] = context.mock(Sequence.class, "s0");
-        sequences[1] = context.mock(Sequence.class, "s1");
-        sequences[2] = context.mock(Sequence.class, "s2");
-
-        context.checking(
-            new Expectations()
-            {
-                {
-                    oneOf(sequences[0]).get();
-                    will(returnValue(Long.valueOf(7L)));
-
-                    oneOf(sequences[1]).get();
-                    will(returnValue(Long.valueOf(3L)));
-
-                    oneOf(sequences[2]).get();
-                    will(returnValue(Long.valueOf(12L)));
-                }
-            });
-
-        Assert.assertEquals(3L, Util.getMinimumSequence(sequences));
+        final Sequence[] sequences = {new Sequence(7L), new Sequence(3L), new Sequence(12L)};
+        assertEquals(3L, Util.getMinimumSequence(sequences));
     }
 
     @Test
@@ -85,13 +50,6 @@ public final class UtilTest
     {
         final Sequence[] sequences = new Sequence[0];
 
-        Assert.assertEquals(Long.MAX_VALUE, Util.getMinimumSequence(sequences));
-    }
-
-    @Test
-    public void shouldGetByteBufferAddress() throws Exception
-    {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(16);
-        assertThat(Util.getAddressFromDirectByteBuffer(buffer), is(not(0L)));
+        assertEquals(Long.MAX_VALUE, Util.getMinimumSequence(sequences));
     }
 }

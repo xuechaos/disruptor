@@ -15,7 +15,14 @@
  */
 package com.lmax.disruptor.sequenced;
 
-import static com.lmax.disruptor.RingBuffer.createSingleProducer;
+import com.lmax.disruptor.BatchEventProcessor;
+import com.lmax.disruptor.BlockingWaitStrategy;
+import com.lmax.disruptor.EventHandler;
+import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.SequenceBarrier;
+import com.lmax.disruptor.support.ValueEvent;
+import com.lmax.disruptor.util.DaemonThreadFactory;
+import org.HdrHistogram.Histogram;
 
 import java.io.PrintStream;
 import java.util.concurrent.BrokenBarrierException;
@@ -24,16 +31,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.HdrHistogram.Histogram;
-
-import com.lmax.disruptor.BatchEventProcessor;
-import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.LifecycleAware;
-import com.lmax.disruptor.RingBuffer;
-import com.lmax.disruptor.SequenceBarrier;
-import com.lmax.disruptor.YieldingWaitStrategy;
-import com.lmax.disruptor.support.ValueEvent;
-import com.lmax.disruptor.util.DaemonThreadFactory;
+import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 
 /**
  * <pre>
@@ -65,13 +63,13 @@ import com.lmax.disruptor.util.DaemonThreadFactory;
  * SB2 - PongBarrier
  *
  * </pre>
- * <p>
- * Note: <b>This test is only useful on a system using an invariant TSC in user space from the System.nanoTime() call.</b>
+ *
+ * <p>Note: <b>This test is only useful on a system using an invariant TSC in user space from the System.nanoTime() call.</b>
  */
 public final class PingPongSequencedLatencyTest
 {
     private static final int BUFFER_SIZE = 1024;
-    private static final long ITERATIONS = 1000L * 1000L * 30L;
+    private static final long ITERATIONS = 100L * 1000L * 30L;
     private static final long PAUSE_NANOS = 1000L;
     private final ExecutorService executor = Executors.newCachedThreadPool(DaemonThreadFactory.INSTANCE);
 
@@ -80,19 +78,19 @@ public final class PingPongSequencedLatencyTest
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     private final RingBuffer<ValueEvent> pingBuffer =
-        createSingleProducer(ValueEvent.EVENT_FACTORY, BUFFER_SIZE, new YieldingWaitStrategy());
+        createSingleProducer(ValueEvent.EVENT_FACTORY, BUFFER_SIZE, new BlockingWaitStrategy());
     private final RingBuffer<ValueEvent> pongBuffer =
-        createSingleProducer(ValueEvent.EVENT_FACTORY, BUFFER_SIZE, new YieldingWaitStrategy());
+        createSingleProducer(ValueEvent.EVENT_FACTORY, BUFFER_SIZE, new BlockingWaitStrategy());
 
     private final SequenceBarrier pongBarrier = pongBuffer.newBarrier();
     private final Pinger pinger = new Pinger(pingBuffer, ITERATIONS, PAUSE_NANOS);
     private final BatchEventProcessor<ValueEvent> pingProcessor =
-        new BatchEventProcessor<ValueEvent>(pongBuffer, pongBarrier, pinger);
+            new BatchEventProcessor<>(pongBuffer, pongBarrier, pinger);
 
     private final SequenceBarrier pingBarrier = pingBuffer.newBarrier();
     private final Ponger ponger = new Ponger(pongBuffer);
     private final BatchEventProcessor<ValueEvent> pongProcessor =
-        new BatchEventProcessor<ValueEvent>(pingBuffer, pingBarrier, ponger);
+            new BatchEventProcessor<>(pingBuffer, pingBarrier, ponger);
 
     {
         pingBuffer.addGatingSequences(pongProcessor.getSequence());
@@ -145,7 +143,7 @@ public final class PingPongSequencedLatencyTest
         test.shouldCompareDisruptorVsQueues();
     }
 
-    private static class Pinger implements EventHandler<ValueEvent>, LifecycleAware
+    private static class Pinger implements EventHandler<ValueEvent>
     {
         private final RingBuffer<ValueEvent> buffer;
         private final long maxEvents;
@@ -157,7 +155,7 @@ public final class PingPongSequencedLatencyTest
         private Histogram histogram;
         private long t0;
 
-        public Pinger(final RingBuffer<ValueEvent> buffer, final long maxEvents, final long pauseTimeNs)
+        Pinger(final RingBuffer<ValueEvent> buffer, final long maxEvents, final long pauseTimeNs)
         {
             this.buffer = buffer;
             this.maxEvents = maxEvents;
@@ -227,13 +225,13 @@ public final class PingPongSequencedLatencyTest
         }
     }
 
-    private static class Ponger implements EventHandler<ValueEvent>, LifecycleAware
+    private static class Ponger implements EventHandler<ValueEvent>
     {
         private final RingBuffer<ValueEvent> buffer;
 
         private CyclicBarrier barrier;
 
-        public Ponger(final RingBuffer<ValueEvent> buffer)
+        Ponger(final RingBuffer<ValueEvent> buffer)
         {
             this.buffer = buffer;
         }

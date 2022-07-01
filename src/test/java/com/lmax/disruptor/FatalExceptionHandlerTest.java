@@ -16,52 +16,23 @@
 package com.lmax.disruptor;
 
 import com.lmax.disruptor.support.TestEvent;
-import org.jmock.Expectations;
-import org.jmock.Mockery;
-import org.jmock.integration.junit4.JMock;
-import org.jmock.lib.legacy.ClassImposteriser;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@RunWith(JMock.class)
 public final class FatalExceptionHandlerTest
 {
-    private final Mockery context = new Mockery();
-
-    public FatalExceptionHandlerTest()
-    {
-        context.setImposteriser(ClassImposteriser.INSTANCE);
-    }
-
     @Test
     public void shouldHandleFatalException()
     {
         final Exception causeException = new Exception();
         final TestEvent event = new TestEvent();
 
-        final Logger logger = context.mock(Logger.class);
+        ExceptionHandler<Object> exceptionHandler = new FatalExceptionHandler();
 
-        context.checking(
-            new Expectations()
-            {
-                {
-                    oneOf(logger).log(Level.SEVERE, "Exception processing: 0 " + event, causeException);
-                }
-            });
+        Throwable ex =  assertThrows(RuntimeException.class, () -> exceptionHandler.handleEventException(causeException, 0L, event));
 
-        ExceptionHandler<Object> exceptionHandler = new FatalExceptionHandler(logger);
-
-        try
-        {
-            exceptionHandler.handleEventException(causeException, 0L, event);
-        }
-        catch (RuntimeException ex)
-        {
-            Assert.assertEquals(causeException, ex.getCause());
-        }
+        assertEquals(causeException, ex.getCause());
     }
 }

@@ -15,21 +15,22 @@
  */
 package com.lmax.disruptor.sequenced;
 
-import static com.lmax.disruptor.RingBuffer.createSingleProducer;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 import com.lmax.disruptor.AbstractPerfTestDisruptor;
 import com.lmax.disruptor.BatchEventProcessor;
 import com.lmax.disruptor.EventFactory;
+import com.lmax.disruptor.PerfTestContext;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.SequenceBarrier;
 import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.support.LongArrayEventHandler;
 import com.lmax.disruptor.support.PerfTestUtil;
 import com.lmax.disruptor.util.DaemonThreadFactory;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 
 /**
  * <pre>
@@ -67,14 +68,7 @@ public final class OneToOneSequencedLongArrayThroughputTest extends AbstractPerf
     private static final int ARRAY_SIZE = 2 * 1024;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(DaemonThreadFactory.INSTANCE);
 
-    private static final EventFactory<long[]> FACTORY = new EventFactory<long[]>()
-    {
-        @Override
-        public long[] newInstance()
-        {
-            return new long[ARRAY_SIZE];
-        }
-    };
+    private static final EventFactory<long[]> FACTORY = () -> new long[ARRAY_SIZE];
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     private final RingBuffer<long[]> ringBuffer =
@@ -82,7 +76,7 @@ public final class OneToOneSequencedLongArrayThroughputTest extends AbstractPerf
     private final SequenceBarrier sequenceBarrier = ringBuffer.newBarrier();
     private final LongArrayEventHandler handler = new LongArrayEventHandler();
     private final BatchEventProcessor<long[]> batchEventProcessor =
-        new BatchEventProcessor<long[]>(ringBuffer, sequenceBarrier, handler);
+            new BatchEventProcessor<>(ringBuffer, sequenceBarrier, handler);
 
     {
         ringBuffer.addGatingSequences(batchEventProcessor.getSequence());
@@ -97,8 +91,9 @@ public final class OneToOneSequencedLongArrayThroughputTest extends AbstractPerf
     }
 
     @Override
-    protected long runDisruptorPass() throws InterruptedException
+    protected PerfTestContext runDisruptorPass() throws InterruptedException
     {
+        PerfTestContext perfTestContext = new PerfTestContext();
         final CountDownLatch latch = new CountDownLatch(1);
         long expectedCount = batchEventProcessor.getSequence().get() + ITERATIONS;
         handler.reset(latch, ITERATIONS);
@@ -119,16 +114,17 @@ public final class OneToOneSequencedLongArrayThroughputTest extends AbstractPerf
         }
 
         latch.await();
-        long opsPerSecond = (ITERATIONS * ARRAY_SIZE * 1000L) / (System.currentTimeMillis() - start);
+        perfTestContext.setDisruptorOps((ITERATIONS * ARRAY_SIZE * 1000L) / (System.currentTimeMillis() - start));
+        perfTestContext.setBatchData(handler.getBatchesProcessed(), ITERATIONS);
         waitForEventProcessorSequence(expectedCount);
         batchEventProcessor.halt();
 
         PerfTestUtil.failIf(0, handler.getValue());
 
-        return opsPerSecond;
+        return perfTestContext;
     }
 
-    private void waitForEventProcessorSequence(long expectedCount) throws InterruptedException
+    private void waitForEventProcessorSequence(final long expectedCount) throws InterruptedException
     {
         while (batchEventProcessor.getSequence().get() != expectedCount)
         {
@@ -136,7 +132,7 @@ public final class OneToOneSequencedLongArrayThroughputTest extends AbstractPerf
         }
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
         OneToOneSequencedLongArrayThroughputTest test = new OneToOneSequencedLongArrayThroughputTest();
         test.testImplementations();

@@ -15,7 +15,9 @@
  */
 package com.lmax.disruptor.queue;
 
-import static com.lmax.disruptor.support.PerfTestUtil.failIf;
+import com.lmax.disruptor.AbstractPerfTestQueue;
+import com.lmax.disruptor.support.ValueAdditionQueueProcessor;
+import com.lmax.disruptor.util.DaemonThreadFactory;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -24,10 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import com.lmax.disruptor.AbstractPerfTestQueue;
-import com.lmax.disruptor.support.PerfTestUtil;
-import com.lmax.disruptor.support.ValueAdditionQueueProcessor;
-import com.lmax.disruptor.util.DaemonThreadFactory;
+import static com.lmax.disruptor.support.PerfTestUtil.failIf;
 
 /**
  * <pre>
@@ -56,11 +55,11 @@ public final class OneToOneQueueThroughputTest extends AbstractPerfTestQueue
     private static final int BUFFER_SIZE = 1024 * 64;
     private static final long ITERATIONS = 1000L * 1000L * 10L;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(DaemonThreadFactory.INSTANCE);
-    private final long expectedResult = PerfTestUtil.accumulatedAddition(ITERATIONS);
+    private final long expectedResult = ITERATIONS * 3L;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    private final BlockingQueue<Long> blockingQueue = new LinkedBlockingQueue<Long>(BUFFER_SIZE);
+    private final BlockingQueue<Long> blockingQueue = new LinkedBlockingQueue<>(BUFFER_SIZE);
     private final ValueAdditionQueueProcessor queueProcessor =
         new ValueAdditionQueueProcessor(blockingQueue, ITERATIONS - 1);
 
@@ -82,7 +81,7 @@ public final class OneToOneQueueThroughputTest extends AbstractPerfTestQueue
 
         for (long i = 0; i < ITERATIONS; i++)
         {
-            blockingQueue.put(Long.valueOf(i));
+            blockingQueue.put(3L);
         }
 
         latch.await();
@@ -95,7 +94,7 @@ public final class OneToOneQueueThroughputTest extends AbstractPerfTestQueue
         return opsPerSecond;
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
         OneToOneQueueThroughputTest test = new OneToOneQueueThroughputTest();
         test.testImplementations();

@@ -15,45 +15,37 @@
  */
 package com.lmax.disruptor;
 
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
 /**
  * Blocking strategy that uses a lock and condition variable for {@link EventProcessor}s waiting on a barrier.
- * <p>
- * This strategy can be used when throughput and low-latency are not as important as CPU resource.
+
+ *
+ * <p>This strategy can be used when throughput and low-latency are not as important as CPU resource.
  */
 public final class BlockingWaitStrategy implements WaitStrategy
 {
-    private final Lock lock = new ReentrantLock();
-    private final Condition processorNotifyCondition = lock.newCondition();
+    private final Object mutex = new Object();
 
     @Override
-    public long waitFor(long sequence, Sequence cursorSequence, Sequence dependentSequence, SequenceBarrier barrier)
+    public long waitFor(final long sequence, final Sequence cursorSequence, final Sequence dependentSequence, final SequenceBarrier barrier)
         throws AlertException, InterruptedException
     {
         long availableSequence;
-        if ((availableSequence = cursorSequence.get()) < sequence)
+        if (cursorSequence.get() < sequence)
         {
-            lock.lock();
-            try
+            synchronized (mutex)
             {
-                while ((availableSequence = cursorSequence.get()) < sequence)
+                while (cursorSequence.get() < sequence)
                 {
                     barrier.checkAlert();
-                    processorNotifyCondition.await();
+                    mutex.wait();
                 }
-            }
-            finally
-            {
-                lock.unlock();
             }
         }
 
         while ((availableSequence = dependentSequence.get()) < sequence)
         {
             barrier.checkAlert();
+            Thread.onSpinWait();
         }
 
         return availableSequence;
@@ -62,14 +54,17 @@ public final class BlockingWaitStrategy implements WaitStrategy
     @Override
     public void signalAllWhenBlocking()
     {
-        lock.lock();
-        try
+        synchronized (mutex)
         {
-            processorNotifyCondition.signalAll();
+            mutex.notifyAll();
         }
-        finally
-        {
-            lock.unlock();
-        }
+    }
+
+    @Override
+    public String toString()
+    {
+        return "BlockingWaitStrategy{" +
+            "mutex=" + mutex +
+            '}';
     }
 }

@@ -15,9 +15,10 @@
  */
 package com.lmax.disruptor;
 
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-
 import com.lmax.disruptor.util.Util;
+
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 /**
  * Base class for the various sequencer types (single/multi).  Provides
@@ -38,9 +39,9 @@ public abstract class AbstractSequencer implements Sequencer
      * Create with the specified buffer size and wait strategy.
      *
      * @param bufferSize   The total number of entries, must be a positive power of 2.
-     * @param waitStrategy
+     * @param waitStrategy The wait strategy used by this sequencer
      */
-    public AbstractSequencer(int bufferSize, WaitStrategy waitStrategy)
+    public AbstractSequencer(final int bufferSize, final WaitStrategy waitStrategy)
     {
         if (bufferSize < 1)
         {
@@ -77,7 +78,7 @@ public abstract class AbstractSequencer implements Sequencer
      * @see Sequencer#addGatingSequences(Sequence...)
      */
     @Override
-    public final void addGatingSequences(Sequence... gatingSequences)
+    public final void addGatingSequences(final Sequence... gatingSequences)
     {
         SequenceGroups.addSequences(this, SEQUENCE_UPDATER, this, gatingSequences);
     }
@@ -86,7 +87,7 @@ public abstract class AbstractSequencer implements Sequencer
      * @see Sequencer#removeGatingSequence(Sequence)
      */
     @Override
-    public boolean removeGatingSequence(Sequence sequence)
+    public boolean removeGatingSequence(final Sequence sequence)
     {
         return SequenceGroups.removeSequence(this, SEQUENCE_UPDATER, sequence);
     }
@@ -104,7 +105,7 @@ public abstract class AbstractSequencer implements Sequencer
      * @see Sequencer#newBarrier(Sequence...)
      */
     @Override
-    public SequenceBarrier newBarrier(Sequence... sequencesToTrack)
+    public SequenceBarrier newBarrier(final Sequence... sequencesToTrack)
     {
         return new ProcessingSequenceBarrier(this, waitStrategy, cursor, sequencesToTrack);
     }
@@ -118,8 +119,18 @@ public abstract class AbstractSequencer implements Sequencer
      * @return A poller that will gate on this ring buffer and the supplied sequences.
      */
     @Override
-    public <T> EventPoller<T> newPoller(DataProvider<T> dataProvider, Sequence... gatingSequences)
+    public <T> EventPoller<T> newPoller(final DataProvider<T> dataProvider, final Sequence... gatingSequences)
     {
         return EventPoller.newInstance(dataProvider, this, new Sequence(), cursor, gatingSequences);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "AbstractSequencer{" +
+            "waitStrategy=" + waitStrategy +
+            ", cursor=" + cursor +
+            ", gatingSequences=" + Arrays.toString(gatingSequences) +
+            '}';
     }
 }

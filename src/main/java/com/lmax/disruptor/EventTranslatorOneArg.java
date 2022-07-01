@@ -19,6 +19,7 @@ package com.lmax.disruptor;
  * Implementations translate another data representations into events claimed from the {@link RingBuffer}
  *
  * @param <T> event implementation storing the data for sharing during exchange or parallel coordination of an event.
+ * @param <A> type first user specified argument to the translator.
  * @see EventTranslator
  */
 public interface EventTranslatorOneArg<T, A>
@@ -30,5 +31,5 @@ public interface EventTranslatorOneArg<T, A>
      * @param sequence that is assigned to event.
      * @param arg0     The first user specified argument to the translator
      */
-    void translateTo(final T event, long sequence, final A arg0);
+    void translateTo(T event, long sequence, A arg0);
 }
